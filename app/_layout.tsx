@@ -1,24 +1,53 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Stack, useRouter, useSegments } from "expo-router";
+import { useEffect } from "react";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AuthProvider, useAuth } from "@/src/context/auth-context";
 
-export const unstable_settings = {
-  anchor: '(tabs)',
+const qc = new QueryClient();
+
+export default function Layout() {
+    return (
+        <QueryClientProvider client={qc}>
+            <AuthProvider>
+                <RootNavigator />
+            </AuthProvider>
+        </QueryClientProvider>
+    )
 };
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+function RootNavigator() {
+    const { loading, session } = useAuth();
+    const segments = useSegments();
+    const router = useRouter();
 
-  return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
-  );
+    useEffect(() => {
+        if (loading) {
+            return;
+        }
+
+        const inAuthGroup = segments[0] === "(auth)";
+
+        if (!session && !inAuthGroup) {
+            router.replace("/(auth)/login");
+            return;
+        }
+
+        if (session && inAuthGroup) {
+            router.replace("/(tabs)");
+        }
+    }, [loading, router, segments, session]);
+
+    if (loading) {
+        return null;
+    }
+
+    return (
+        <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal", headerShown: true }} />
+        </Stack>
+    );
 }
